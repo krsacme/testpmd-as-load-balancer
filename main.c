@@ -107,7 +107,7 @@ hash_ring_create(uint32_t replicas)
 
     if (ring != NULL)
     {
-        ring->node_replicas = 1;
+        ring->node_replicas = replicas;
         ring->node_length = 0;
         ring->nodes = NULL;
         ring->items = NULL;
@@ -153,14 +153,14 @@ hash_ring_ll_add_node(struct hash_ring_t *ring, struct hash_ring_node_t *node_in
     struct hash_ring_node_ll_t *entry;
 
     new_node = malloc(sizeof(struct hash_ring_node_t));
-    if (new_node != NULL)
+    if (new_node == NULL)
     {
         perror("failed to allocate memory for node");
         return NULL;
     }
 
     new_node->name = malloc(sizeof(uint8_t) * node_in->name_length);
-    if (new_node->name != NULL)
+    if (new_node->name == NULL)
     {
         perror("failed to allocate memory for node name");
         free(new_node);
@@ -171,7 +171,7 @@ hash_ring_ll_add_node(struct hash_ring_t *ring, struct hash_ring_node_t *node_in
     memcpy(new_node->mac, node_in->mac, MAC_LEN);
 
     entry = malloc(sizeof(struct hash_ring_node_ll_t));
-    if (entry != NULL)
+    if (entry == NULL)
     {
         free(new_node->name);
         free(new_node);
@@ -216,6 +216,8 @@ hash_ring_ll_remove_node(struct hash_ring_t *ring, struct hash_ring_node_t *node
         {
             if (ll_prev != NULL)
                 ll_prev->next = ll_entry->next;
+            else
+                ring->nodes = ll_entry->next;
 
             free(ll_entry->node->name);
             free(ll_entry->node);
@@ -290,7 +292,7 @@ hash_ring_add_items(struct hash_ring_t *ring, struct hash_ring_node_t *node)
     }
 
     ring->items = resized;
-    item_start = item_length - ring->node_replicas - 1;
+    item_start = item_length - ring->node_replicas;
     for (i = item_start; i < item_length; i++)
     {
         item_entry = malloc(sizeof(struct hash_ring_item_t));
@@ -404,6 +406,56 @@ hash_ring_get_node(struct hash_ring_t *ring, uint32_t key)
     return ring->items[ring->item_length - 1]->node;
 }
 
+struct hash_ring_clone_t
+{
+    uint32_t length;
+    struct hash_ring_key_map_t *list;
+};
+
+struct hash_ring_key_map_t
+{
+    uint32_t key;
+    uint8_t mac[MAC_LEN];
+};
+
+struct hash_ring_clone_t *
+hash_ring_items_create_clone(struct hash_ring_t *ring)
+{
+    void *alloc;
+    int array_mem, items_mem, i;
+    struct hash_ring_clone_t *clone;
+
+    // Array
+    array_mem = ring->item_length * sizeof(struct hash_ring_item_t*);
+    // Actual Items
+    items_mem = ring->item_length * sizeof(struct hash_ring_item_t);
+
+    alloc = malloc(array_mem + items_mem);
+    if (alloc == NULL)
+    {
+        perror("failed to clone the items");
+        return NULL;
+    }
+    memset(alloc, 0, array_mem + items_mem);
+    clone = alloc;
+    clone->length = ring->item_length;
+    clone->list = alloc + sizeof(struct hash_ring_clone_t);
+
+    for (i = 0; i < ring->item_length; i++)
+    {
+        clone->list[i].key = ring->items[i]->key;
+        memcpy(clone->list[i].mac, ring->items[i]->node->mac, MAC_LEN);
+    }
+    return clone;
+}
+
+void
+hash_ring_items_desotry_clone(struct hash_ring_clone_t *clone)
+{
+    if (clone != NULL)
+        free(clone);
+}
+
 void
 hash_ring_dump(struct hash_ring_t *ring)
 {
@@ -425,7 +477,7 @@ hash_ring_dump(struct hash_ring_t *ring)
             memset(buffer, 0, 128);
             memcpy(buffer, entry->node->name, entry->node->name_length);
             mac = entry->node->mac;
-            printf("Name(%s) Mac(%c:%c:%c:%c:%c:%c)\n", buffer, mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+            printf("Name(%s) Mac(%02x:%02x:%02x:%02x:%02x:%02x)\n", buffer, mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
             entry = entry->next;
         }
         printf("\n");
@@ -433,7 +485,7 @@ hash_ring_dump(struct hash_ring_t *ring)
         {
             memset(buffer, 0, 128);
             memcpy(buffer, ring->items[i]->node->name, ring->items[i]->node->name_length);
-            printf("Item(%d) key(%10u)\n", i, ring->items[i]->key, buffer);
+            printf("Item(%03d) key(%010u) Node(%s)\n", i, ring->items[i]->key, buffer);
         }
     }
     else
@@ -443,11 +495,31 @@ hash_ring_dump(struct hash_ring_t *ring)
     printf("----------------------------------------------\n");
 }
 
+void
+hash_ring_dump_clone(struct hash_ring_clone_t *clone)
+{
+    int i;
+    uint8_t *mac;
+
+    printf("----------------------------------------------\n");
+    printf("Count: %u\n", clone->length);
+
+    for (i = 0; i < clone->length; i++)
+    {
+        mac = clone->list[i].mac;
+        printf("Item(%03d) key(%010u) Mac(%02x:%02x:%02x:%02x:%02x:%02x)\n",
+                i, clone->list[i].key, mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    }
+    printf("----------------------------------------------\n");
+}
+
+/////////////////// main ///////////////////
+
 /////////////////// main ///////////////////
 int main()
 {
-    uint8_t smac[MAC_LEN] = {20, 30, 40, 50, 90, 70};
-    uint8_t dmac[MAC_LEN] = {20, 30, 40, 50, 90, 70};
+    uint8_t smac[MAC_LEN] = {0x20, 0x30, 0x40, 0x50, 0x90, 0x70};
+    uint8_t dmac[MAC_LEN] = {0x20, 0x30, 0x40, 0x50, 0x90, 0x70};
     uint32_t sip = 10;
     uint32_t dip = 20;
     uint16_t sport = 30;
@@ -455,8 +527,10 @@ int main()
     uint32_t hval = 0;
     struct hash_ring_t *ring;
     struct hash_ring_node_t *node;
+    uint8_t *m;
+    struct hash_ring_clone_t *clone1, *clone2, *clone3;
 
-    ring = hash_ring_create(1);
+    ring = hash_ring_create(8);
     if (ring == NULL)
     {
         perror("main: failed to create ring");
@@ -464,23 +538,55 @@ int main()
     }
 
     node = malloc(sizeof(struct hash_ring_node_t));
-    node->name = "node1";
+    node->name = "node0";
     node->name_length = 5;
     memcpy(node->mac, smac, MAC_LEN);
     hash_ring_add_node(ring, node);
-    free(node->name);
-    free(node);
+    node->name = "node1";
+    memcpy(node->mac, smac, MAC_LEN);
+    node->mac[5] = 0x71;
+    hash_ring_add_node(ring, node);
+    memcpy(node->mac, smac, MAC_LEN);
+    node->name = "node2";
+    node->mac[5] = 0x72;
+    hash_ring_add_node(ring, node);
+    memcpy(node->mac, smac, MAC_LEN);
+    node->name = "node3";
+    node->mac[5] = 0x73;
+    hash_ring_add_node(ring, node);
+    memcpy(node->mac, smac, MAC_LEN);
+    node->name = "node4";
+    node->mac[5] = 0x74;
+    hash_ring_add_node(ring, node);
+
+    memcpy(node->mac, smac, MAC_LEN);
+    node->name = "node2";
+    node->mac[5] = 0x72;
+    hash_ring_remove_node(ring, node);
 
     hval = hash_tuple(smac, dmac, sip, dip, sport, dport);
-    printf("hval = %u\n", hval);
-    sip = 20;
-    hval = hash_tuple(smac, dmac, sip, dip, sport, dport);
-    printf("hval = %u\n", hval);
-
-    hval = hash_node_mac(smac);
-    printf("hval = %u\n", hval);
+    node = hash_ring_get_node(ring, hval); m = node->mac;
+    printf("tuple: hval(%010u) mac(%02x:%02x:%02x:%02x:%02x:%02x) \n", hval, m[0], m[1], m[2], m[3], m[4], m[5]);
+    hval = hash_tuple(smac, dmac, 20, dip, sport, dport);
+    node = hash_ring_get_node(ring, hval); m = node->mac;
+    printf("tuple: hval(%010u) mac(%02x:%02x:%02x:%02x:%02x:%02x) \n", hval, m[0], m[1], m[2], m[3], m[4], m[5]);
+    hval = hash_tuple(smac, dmac, 20, dip, sport, 108);
+    node = hash_ring_get_node(ring, hval); m = node->mac;
+    printf("tuple: hval(%010u) mac(%02x:%02x:%02x:%02x:%02x:%02x) \n", hval, m[0], m[1], m[2], m[3], m[4], m[5]);
+    hval = hash_tuple(smac, dmac, 435, dip, 3000, 108);
+    node = hash_ring_get_node(ring, hval); m = node->mac;
+    printf("tuple: hval(%010u) mac(%02x:%02x:%02x:%02x:%02x:%02x) \n", hval, m[0], m[1], m[2], m[3], m[4], m[5]);
 
     hash_ring_dump(ring);
+
+    clone1 = hash_ring_items_create_clone(ring);
+    hash_ring_dump_clone(clone1);
+    clone2 = hash_ring_items_create_clone(ring);
+    hash_ring_dump_clone(clone2);
+    clone3 = hash_ring_items_create_clone(ring);
+    hash_ring_dump_clone(clone3);
+
+    free(node);
     hash_ring_destroy(ring);
 
     return 0;
