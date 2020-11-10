@@ -2115,6 +2115,141 @@ simple_fwd_config_setup(void)
 	}
 }
 
+static void
+lb_fwd_config_setup_sm(struct fwd_stream *fs, portid_t rxp, portid_t txp, queueid_t queue, uint8_t generate)
+{
+	fs->rx_port = rxp;
+	fs->rx_queue = queue;
+	fs->tx_port = txp;
+	fs->tx_queue = queue;
+	if (generate == 0)
+	{
+		// Receive from DUT port and Write to Packet Gen port
+		// Today its simple identification based on first 2 for Packet Gen and next 2 for DUT and so on
+		fs->peer_addr = fs->tx_port;
+		fs->generate = 0;
+	}
+	else
+	{
+		fs->peer_addr = nb_fwd_ports;
+		fs->generate = 1;
+	}
+	fs->retry_enabled = retry_enabled;
+}
+
+static void
+lb_fwd_config_setup_4ports_bi(void)
+{
+	portid_t   rxp;
+	queueid_t  rxq;
+	queueid_t  nb_q;
+	streamid_t sm_id;
+	portid_t  *dut_fwd_ports, *gen_fwd_ports;
+	uint32_t   nb_dut_fwd_ports, nb_gen_fwd_ports;
+	uint32_t   i, j;
+	char name[RTE_ETH_NAME_MAX_LEN];
+	uint8_t dut_pci_found;
+	struct rte_pci_addr port_pci;
+
+	nb_q = nb_rxq;
+	if (nb_q > nb_txq)
+		nb_q = nb_txq;
+	cur_fwd_config.nb_fwd_lcores = (lcoreid_t) nb_fwd_lcores;
+	cur_fwd_config.nb_fwd_ports = nb_fwd_ports;
+	cur_fwd_config.nb_fwd_streams =
+		(streamid_t) (nb_q * cur_fwd_config.nb_fwd_ports);
+
+	if (cur_fwd_config.nb_fwd_streams < cur_fwd_config.nb_fwd_lcores)
+		cur_fwd_config.nb_fwd_lcores =
+			(lcoreid_t)cur_fwd_config.nb_fwd_streams;
+
+	/* reinitialize forwarding streams */
+	init_fwd_streams();
+
+	if (2 * nb_lb_dut_pcis != nb_fwd_ports)
+	{
+		printf("Number of ports: %u\n", nb_fwd_ports);
+		printf("Number of DUT PCIs: %u\n", nb_lb_dut_pcis);
+		rte_exit(-1, "Number DUT ports should be half of total number of ports\n");
+		return;
+	}
+
+	dut_fwd_ports = malloc(nb_lb_dut_pcis * sizeof(portid_t));
+	nb_dut_fwd_ports = 0;
+	gen_fwd_ports = malloc(nb_lb_dut_pcis * sizeof(portid_t));
+	nb_gen_fwd_ports = 0;
+	for (i = 0; i < nb_fwd_ports; i++)
+	{
+		rte_eth_dev_get_name_by_port(fwd_ports_ids[i], name);
+		printf("Port(%u) PCI(%s)\n", i, name);
+	}
+	for (i = 0; i < nb_fwd_ports; i++)
+	{
+		dut_pci_found = 0;
+		rte_eth_dev_get_name_by_port(fwd_ports_ids[i], name);
+		rte_pci_addr_parse(name, &port_pci);
+		for (j = 0; j < nb_lb_dut_pcis; j++)
+		{
+			if (0 == rte_pci_addr_cmp(&port_pci, &lb_dut_pcis[j]))
+			{
+				dut_pci_found = 1;
+			}
+		}
+
+		if (dut_pci_found == 1)
+			dut_fwd_ports[nb_dut_fwd_ports++] = fwd_ports_ids[i];
+		else
+			gen_fwd_ports[nb_gen_fwd_ports++] = fwd_ports_ids[i];
+	}
+
+	if (nb_dut_fwd_ports != nb_gen_fwd_ports)
+	{
+		rte_exit(1, "Packet generator and DUT ports should match");
+		return;
+	}
+
+	setup_fwd_config_of_each_lcore(&cur_fwd_config);
+	rxp = 0; rxq = 0;
+	for (sm_id = 0; sm_id < cur_fwd_config.nb_fwd_streams - 1; sm_id++, sm_id++) {
+		struct fwd_stream *fs_gen, *fs_dut;
+
+		fs_gen = fwd_streams[sm_id];
+		fs_dut = fwd_streams[sm_id + 1];
+
+		lb_fwd_config_setup_sm(fs_gen, gen_fwd_ports[rxp], dut_fwd_ports[rxp], rxq, 1);
+		lb_fwd_config_setup_sm(fs_dut, dut_fwd_ports[rxp], gen_fwd_ports[rxp], rxq, 0);
+
+		rxp++;
+		if (rxp < nb_dut_fwd_ports)
+			continue;
+		rxp = 0;
+		rxq++;
+	}
+}
+
+/**
+ * For TestPMD as load balancer setup
+ * Possible combinations:
+ * 4 Ports Bi  - 2 ports connected to Packet Generator, 2 ports connected to DUT
+ * 4 Ports Uni - Each port with with Packet Gen input, DUT input, DUT output, Packet Gen output in single direction
+ * 2 Ports Bi  - 2 ports connected to both Packet Generator and DUT
+ * 2 Ports Bi DSR - 2 ports connected to both Packet Generator and DUT. DUT return path is direct to Packet Gen
+ */
+static void
+lb_fwd_config_setup(void)
+{
+	if (nb_fwd_ports % 4 == 0)
+	{
+		printf("4 ports configured for load balancer with bi-directional traffic\n");
+		lb_fwd_config_setup_4ports_bi();
+	}
+	else
+	{
+		rte_exit(1, "configuration is not supported");
+		return;
+	}
+}
+
 /**
  * For the RSS forwarding test all streams distributed over lcores. Each stream
  * being composed of a RX queue to poll on a RX port for input messages,
@@ -2373,7 +2508,9 @@ fwd_config_setup(void)
 	}
 #endif
 
-	if ((nb_rxq > 1) && (nb_txq > 1)){
+	if (lb_enabled == 1)
+		lb_fwd_config_setup();
+	else if ((nb_rxq > 1) && (nb_txq > 1)){
 		if (dcb_config)
 			dcb_fwd_config_setup();
 		else

@@ -184,6 +184,7 @@ struct fwd_engine * fwd_engines[] = {
 #ifdef RTE_LIBRTE_IEEE1588
 	&ieee1588_fwd_engine,
 #endif
+	&lb_fwd_engine,
 	NULL,
 };
 
@@ -416,6 +417,13 @@ uint8_t latencystats_enabled;
 lcoreid_t latencystats_lcore_id = -1;
 
 #endif
+
+/*
+ * TestPMD as Load Balancer is enabled in the commandline
+ */
+uint8_t lb_enabled;
+struct rte_pci_addr * lb_dut_pcis;
+uint32_t nb_lb_dut_pcis;
 
 /*
  * Ethernet device configuration.
@@ -3422,6 +3430,9 @@ main(int argc, char** argv)
 #ifdef RTE_LIBRTE_LATENCY_STATS
 	latencystats_enabled = 0;
 #endif
+	lb_enabled = 0;
+	lb_dut_pcis = NULL;
+	nb_lb_dut_pcis = 0;
 
 	/* on FreeBSD, mlockall() is disabled by default */
 #ifdef RTE_EXEC_ENV_FREEBSD

@@ -210,6 +210,8 @@ usage(char* progname)
 	printf("  --noisy-lkup-num-writes=N: do N random reads and writes per packet\n");
 	printf("  --no-iova-contig: mempool memory can be IOVA non contiguous. "
 	       "valid only with --mp-alloc=anon\n");
+	printf("  --enable-lb: enable load balancer mode\n");
+	printf("  --dut-pci: PCI address of ports attached to DUT\n");
 }
 
 #ifdef RTE_LIBRTE_CMDLINE
@@ -667,6 +669,8 @@ launch_args_parse(int argc, char** argv)
 		{ "noisy-lkup-num-reads",	1, 0, 0 },
 		{ "noisy-lkup-num-reads-writes", 1, 0, 0 },
 		{ "no-iova-contig",             0, 0, 0 },
+		{ "enable-lb",                  0, 0, 0 },
+		{ "dut-pci",                    1, 0, 0 },
 		{ 0, 0, 0, 0 },
 	};
 
@@ -1356,6 +1360,13 @@ launch_args_parse(int argc, char** argv)
 			}
 			if (!strcmp(lgopts[opt_idx].name, "no-iova-contig"))
 				mempool_flags = MEMPOOL_F_NO_IOVA_CONTIG;
+			if (!strcmp(lgopts[opt_idx].name, "enable-lb"))
+				lb_enabled = 1;
+			if (!strcmp(lgopts[opt_idx].name, "dut-pci")) {
+				nb_lb_dut_pcis++;
+				lb_dut_pcis = realloc(lb_dut_pcis, nb_lb_dut_pcis * sizeof(struct rte_pci_addr));
+				rte_pci_addr_parse(optarg, &lb_dut_pcis[nb_lb_dut_pcis - 1]);
+			}
 			break;
 		case 'h':
 			usage(argv[0]);

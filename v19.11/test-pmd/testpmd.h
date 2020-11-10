@@ -114,6 +114,7 @@ struct fwd_stream {
 	portid_t   tx_port;   /**< forwarding port of received packets */
 	queueid_t  tx_queue;  /**< TX queue to send forwarded packets */
 	streamid_t peer_addr; /**< index of peer ethernet address of packets */
+        uint8_t    generate;  /**< Generate the destination parameters (mac) */
 
 	unsigned int retry_enabled;
 
@@ -260,6 +261,7 @@ extern struct fwd_engine softnic_fwd_engine;
 #ifdef RTE_LIBRTE_IEEE1588
 extern struct fwd_engine ieee1588_fwd_engine;
 #endif
+extern struct fwd_engine lb_fwd_engine;
 
 extern struct fwd_engine * fwd_engines[]; /**< NULL terminated array. */
 extern cmdline_parse_inst_t cmd_set_raw;
@@ -415,6 +417,10 @@ extern uint16_t stats_period;
 extern uint8_t latencystats_enabled;
 extern lcoreid_t latencystats_lcore_id;
 #endif
+
+extern uint8_t lb_enabled;
+extern struct rte_pci_addr *lb_dut_pcis;
+extern uint32_t nb_lb_dut_pcis;
 
 #ifdef RTE_LIBRTE_BITRATE
 extern lcoreid_t bitrate_lcore_id;
