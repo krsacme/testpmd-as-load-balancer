@@ -2116,7 +2116,7 @@ simple_fwd_config_setup(void)
 }
 
 static void
-lb_fwd_config_setup_sm(struct fwd_stream *fs, portid_t rxp, portid_t txp, queueid_t queue, uint8_t generate)
+lb_fwd_config_setup_sm(struct fwd_stream *fs, portid_t rxp, portid_t txp, portid_t rxp_index, queueid_t queue, uint8_t generate)
 {
 	fs->rx_port = rxp;
 	fs->rx_queue = queue;
@@ -2124,9 +2124,7 @@ lb_fwd_config_setup_sm(struct fwd_stream *fs, portid_t rxp, portid_t txp, queuei
 	fs->tx_queue = queue;
 	if (generate == 0)
 	{
-		// Receive from DUT port and Write to Packet Gen port
-		// Today its simple identification based on first 2 for Packet Gen and next 2 for DUT and so on
-		fs->peer_addr = fs->tx_port;
+		fs->peer_addr = rxp_index;
 		fs->generate = 0;
 	}
 	else
@@ -2216,8 +2214,8 @@ lb_fwd_config_setup_4ports_bi(void)
 		fs_gen = fwd_streams[sm_id];
 		fs_dut = fwd_streams[sm_id + 1];
 
-		lb_fwd_config_setup_sm(fs_gen, gen_fwd_ports[rxp], dut_fwd_ports[rxp], rxq, 1);
-		lb_fwd_config_setup_sm(fs_dut, dut_fwd_ports[rxp], gen_fwd_ports[rxp], rxq, 0);
+		lb_fwd_config_setup_sm(fs_gen, gen_fwd_ports[rxp], dut_fwd_ports[rxp], rxp, rxq, 1);
+		lb_fwd_config_setup_sm(fs_dut, dut_fwd_ports[rxp], gen_fwd_ports[rxp], rxp, rxq, 0);
 
 		rxp++;
 		if (rxp < nb_dut_fwd_ports)
