@@ -149,7 +149,7 @@ generate_hash_key(struct rte_mbuf *mb)
 }
 
 static void
-pkt_dump(struct rte_mbuf *mb, portid_t port)
+pkt_dump(struct rte_mbuf *mb, portid_t port, int inout)
 {
 	// Logging
 	char smac_str[32];
@@ -238,8 +238,13 @@ pkt_dump(struct rte_mbuf *mb, portid_t port)
 	sprintf(dip_str, "%hhu.%hhu.%hhu.%hhu", a, b, c, d);
 	UNUSED(dport);
 	UNUSED(sport);
-	printf("port(%u): %s->%s, %s->%s, %s:%u, %u\n", port, smac_str,
+	if (inout == 0)
+		printf("port(%u): %s->%s, %s->%s, %s:%u, %u\n", port, smac_str,
 			dmac_str, sip_str, dip_str, l4_proto_str, sport, dport);
+	else
+		printf(">>> port(%u): %s->%s, %s->%s, %s:%u, %u\n", port, smac_str,
+			dmac_str, sip_str, dip_str, l4_proto_str, sport, dport);
+
 }
 
 /*
@@ -301,7 +306,7 @@ pkt_burst_lb_forward(struct fwd_stream *fs)
 			rte_prefetch0(rte_pktmbuf_mtod(pkts_burst[i + 1],
 						       void *));
 		mb = pkts_burst[i];
-		pkt_dump(mb, fs->rx_port);
+		pkt_dump(mb, fs->rx_port, 0);
 		eth_hdr = rte_pktmbuf_mtod(mb, struct rte_ether_hdr *);
 		if (eth_hdr == NULL)
 		{
@@ -319,10 +324,11 @@ pkt_burst_lb_forward(struct fwd_stream *fs)
 		}
 		else
 		{
-			// TODO(skramaja): copy correct mac from the ethpeer
 			rte_ether_addr_copy(&peer_eth_addrs[fs->peer_addr],
 				&eth_hdr->d_addr);
 		}
+		pkt_dump(mb, fs->rx_port, 1);
+		eth_hdr = rte_pktmbuf_mtod(mb, struct rte_ether_hdr *);
 		mb->ol_flags &= IND_ATTACHED_MBUF | EXT_ATTACHED_MBUF;
 		mb->ol_flags |= ol_flags;
 		mb->l2_len = sizeof(struct rte_ether_hdr);

@@ -3564,7 +3564,8 @@ main(int argc, char** argv)
 				diff_time += cur_time - prev_time;
 
 				if (diff_time >= timer_period) {
-					print_stats();
+					if (lb_enabled == 0)
+						print_stats();
 					/* Reset the timer */
 					diff_time = 0;
 				}
