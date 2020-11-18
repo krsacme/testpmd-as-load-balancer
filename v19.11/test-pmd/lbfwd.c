@@ -319,6 +319,7 @@ pkt_burst_lb_forward(struct fwd_stream *fs)
 			if (key != 0)
 			{
 				hash_ring_clone_get_mac(hash_clone[lcore], key, mac.addr_bytes);
+				rte_ether_addr_copy(&eth_hdr->d_addr, &eth_hdr->s_addr);
 				rte_ether_addr_copy(&mac, &eth_hdr->d_addr);
 			}
 		}
