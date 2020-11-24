@@ -327,6 +327,8 @@ pkt_burst_lb_forward(struct fwd_stream *fs)
 		}
 		else
 		{
+			rte_eth_macaddr_get(fs->tx_port, &tx_port_mac);
+			rte_ether_addr_copy(&tx_port_mac, &eth_hdr->s_addr);
 			rte_ether_addr_copy(&peer_eth_addrs[fs->peer_addr],
 				&eth_hdr->d_addr);
 		}
