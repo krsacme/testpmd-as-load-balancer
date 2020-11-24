@@ -271,6 +271,7 @@ pkt_burst_lb_forward(struct fwd_stream *fs)
 	uint64_t core_cycles;
 #endif
         struct rte_ether_addr mac;
+        struct rte_ether_addr tx_port_mac;
         uint32_t key;
 	lcoreid_t lcore;
 
@@ -318,8 +319,9 @@ pkt_burst_lb_forward(struct fwd_stream *fs)
 			key = generate_hash_key(mb);
 			if (key != 0)
 			{
+				rte_eth_macaddr_get(fs->tx_port, &tx_port_mac);
 				hash_ring_clone_get_mac(hash_clone[lcore], key, mac.addr_bytes);
-				rte_ether_addr_copy(&eth_hdr->d_addr, &eth_hdr->s_addr);
+				rte_ether_addr_copy(&tx_port_mac, &eth_hdr->s_addr);
 				rte_ether_addr_copy(&mac, &eth_hdr->d_addr);
 			}
 		}
