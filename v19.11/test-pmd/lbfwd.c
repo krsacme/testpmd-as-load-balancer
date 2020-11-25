@@ -319,10 +319,13 @@ pkt_burst_lb_forward(struct fwd_stream *fs)
 			key = generate_hash_key(mb);
 			if (key != 0)
 			{
-				rte_eth_macaddr_get(fs->tx_port, &tx_port_mac);
-				hash_ring_clone_get_mac(hash_clone[lcore], key, mac.addr_bytes);
-				rte_ether_addr_copy(&tx_port_mac, &eth_hdr->s_addr);
-				rte_ether_addr_copy(&mac, &eth_hdr->d_addr);
+				if (0 == hash_ring_clone_get_mac(hash_clone[lcore], key, mac.addr_bytes))
+				{
+					rte_eth_macaddr_get(fs->tx_port, &tx_port_mac);
+					rte_ether_addr_copy(&tx_port_mac, &eth_hdr->s_addr);
+					rte_ether_addr_copy(&mac, &eth_hdr->d_addr);
+					pkt_dump(mb, fs->rx_port, 1);
+				}
 			}
 		}
 		else
@@ -331,8 +334,8 @@ pkt_burst_lb_forward(struct fwd_stream *fs)
 			rte_ether_addr_copy(&tx_port_mac, &eth_hdr->s_addr);
 			rte_ether_addr_copy(&peer_eth_addrs[fs->peer_addr],
 				&eth_hdr->d_addr);
+			pkt_dump(mb, fs->rx_port, 1);
 		}
-		pkt_dump(mb, fs->rx_port, 1);
 		eth_hdr = rte_pktmbuf_mtod(mb, struct rte_ether_hdr *);
 		mb->ol_flags &= IND_ATTACHED_MBUF | EXT_ATTACHED_MBUF;
 		mb->ol_flags |= ol_flags;

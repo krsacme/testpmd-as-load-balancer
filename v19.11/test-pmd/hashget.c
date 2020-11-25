@@ -99,7 +99,7 @@ hash_tuple(uint8_t *smac, uint8_t *dmac, uint32_t sip, uint32_t dip, uint16_t sp
 }
 
 // Called from the PMD Thread
-void
+int
 hash_ring_clone_get_mac(struct hash_ring_clone_t *clone, uint32_t key, uint8_t *mac)
 {
 	uint32_t i;
@@ -107,7 +107,7 @@ hash_ring_clone_get_mac(struct hash_ring_clone_t *clone, uint32_t key, uint8_t *
 	if (clone == NULL)
 	{
 		printf("hash_ring_clone_get_mac: clone is NULL\n");
-		return;
+		return -2;
 	}
 
 	if (mac != NULL)
@@ -117,9 +117,10 @@ hash_ring_clone_get_mac(struct hash_ring_clone_t *clone, uint32_t key, uint8_t *
 			if (key < clone->list[i].key)
 			{
 				memcpy(mac, clone->list[i].mac, MAC_LEN);
-				return;
+				return 0;
 			}
 		}
 		memcpy(mac, clone->list[clone->length - 1].mac, MAC_LEN);
 	}
+	return -1;
 }

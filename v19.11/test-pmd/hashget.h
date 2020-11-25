@@ -44,7 +44,7 @@ extern volatile struct hash_ring_clone_t *hash_clone_new;
 void
 hash_ring_clone_init(struct hash_ring_clone_t **clone_holders, uint32_t nb);
 
-void
+int
 hash_ring_clone_get_mac(struct hash_ring_clone_t *clone, uint32_t key, uint8_t *mac);
 
 void
