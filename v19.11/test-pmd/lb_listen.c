@@ -51,6 +51,7 @@ lb_listen_deinit(void)
 	if (lb_listen_flag == 0)
 		return;
 	lb_listen_flag = 0;
+	printf("shuttindown socket %s \n", SOCKET_NAME);
 	shutdown(sock_conn, SHUT_RD);
 	close(sock_conn);
 	// TODO(skarama): Cleanup all the clones
@@ -101,11 +102,12 @@ lb_listen(void *arg)
 		sock_data = accept(sock_conn, NULL, NULL);
 		if (sock_data == -1 && lb_listen_flag == 0)
 		{
+			printf("exiting gracefully...\n");
 			break;
 		}
 		else if (sock_data == -1)
 		{
-			perror("accept error");
+			printf("exiting with socket accept error...\n");
 			exit(EXIT_FAILURE);
 		}
 
@@ -118,11 +120,12 @@ lb_listen(void *arg)
 			ret = read(sock_data, buffer, size);
 			if (ret == -1)
 			{
-				perror("read error");
+				printf("socket read error\n");
 				break;
 			}
 			else if (ret == 0)
 			{
+				printf("end of data\n");
 				break;
 			}
 
@@ -131,13 +134,13 @@ lb_listen(void *arg)
 			if (buffer[len - 1] != ';')
 				partial = 1;
 
-			printf("len(%d) buffer(%s)\n", len, buffer);
+			printf("socket data received - len(%d) buffer(%s)\n", len, buffer);
 			char *token = strtok_r(buffer, ";", &token_save);
 			while (token != NULL)
 			{
 				strcpy(tokbuf, token);
 				process_data(tokbuf);
-				//hash_ring_dump(ring);
+				hash_ring_dump(ring);
 				token = strtok_r(NULL, ";", &token_save);
 			}
 
@@ -146,7 +149,10 @@ lb_listen(void *arg)
 
 		}
 		if (ret == -1)
+		{
+			printf("existing on failure to read socket data\n");
 			break;
+		}
 		close(sock_data);
 		hash_ring_updated(ring);
 
@@ -179,7 +185,8 @@ process_data(char *data)
 {
 	char *token = NULL;
 	char *token_save = NULL;
-	char *mac_str = NULL;
+	char *mac1_str = NULL;
+	char *mac2_str = NULL;
 	char *name = NULL;
 	int operation = 0;
 	struct hash_ring_node_t *node;
@@ -193,33 +200,46 @@ process_data(char *data)
 	token = strtok_r(NULL, ",", &token_save);
 	if (token != NULL)
 	{
-		mac_str = malloc(strlen(token + 1));
-		if (mac_str != NULL)
-			strcpy(mac_str, token);
+		mac1_str = malloc(strlen(token + 1));
+		if (mac1_str != NULL)
+			strcpy(mac1_str, token);
+	}
+	token = strtok_r(NULL, ",", &token_save);
+	if (token != NULL)
+	{
+		mac2_str = malloc(strlen(token + 1));
+		if (mac2_str != NULL)
+			strcpy(mac2_str, token);
+	}
 
-		token = strtok_r(NULL, ",", &token_save);
-		if (token != NULL)
-		{
-			name = malloc(strlen(token + 1));
-			if (name != NULL)
-				strcpy(name, token);
-		}
+
+	token = strtok_r(NULL, ",", &token_save);
+	if (token != NULL)
+	{
+		name = malloc(strlen(token + 1));
+		if (name != NULL)
+			strcpy(name, token);
 	}
 
 	node = malloc(sizeof(struct hash_ring_node_t));
-	if (node != NULL && mac_str != NULL)
+	if (node != NULL && mac1_str != NULL && mac2_str != NULL)
 	{
-		parse_mac(mac_str, node->mac);
 		node->name = (uint8_t*)name;
 		if (name != NULL)
 			node->name_length = strlen(name);
 		switch (operation)
 		{
 			case DUT_MAC_ADDED:
+				parse_mac(mac1_str, node->mac);
+				hash_ring_add_node(ring, node);
+				parse_mac(mac2_str, node->mac);
 				hash_ring_add_node(ring, node);
 				break;
 
 			case DUT_MAC_REMOVED:
+				parse_mac(mac1_str, node->mac);
+				hash_ring_remove_node(ring, node);
+				parse_mac(mac2_str, node->mac);
 				hash_ring_remove_node(ring, node);
 				break;
 
@@ -230,13 +250,24 @@ process_data(char *data)
 			}
 		}
 	}
+	else
+	{
+		if (node == NULL)
+			printf("ERROR: failed to allocate node memory\n");
+		if (mac1_str == NULL)
+			printf("ERROR: mac1 is not found\n");
+		if (mac2_str == NULL)
+			printf("ERROR: mac2 is not found\n");
+	}
 
 	if (node != NULL)
 		free(node);
 	if (name != NULL)
 		free(name);
-	if (mac_str != NULL)
-		free(mac_str);
+	if (mac1_str != NULL)
+		free(mac1_str);
+	if (mac2_str != NULL)
+		free(mac2_str);
 }
 
 #endif /* _LB_LISTEN_H */

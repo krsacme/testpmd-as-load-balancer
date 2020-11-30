@@ -339,7 +339,6 @@ pkt_burst_lb_forward(struct fwd_stream *fs)
 				&eth_hdr->d_addr);
 			pkt_dump(mb, fs->rx_port, 1);
 		}
-		eth_hdr = rte_pktmbuf_mtod(mb, struct rte_ether_hdr *);
 		mb->ol_flags &= IND_ATTACHED_MBUF | EXT_ATTACHED_MBUF;
 		mb->ol_flags |= ol_flags;
 		mb->l2_len = sizeof(struct rte_ether_hdr);
