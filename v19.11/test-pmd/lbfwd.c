@@ -228,7 +228,10 @@ pkt_dump(struct rte_mbuf *mb, portid_t port, int inout)
 	}
 	else
 	{
-		printf("port(%u): %s->%s\n", port, smac_str, dmac_str);
+                if (inout == 0)
+                        printf("port(%u): %s->%s \n", port, smac_str, dmac_str);
+                else
+                        printf(">>> port(%u): %s->%s \n", port, smac_str, dmac_str);
 		return;
 	}
 
