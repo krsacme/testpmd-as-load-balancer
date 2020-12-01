@@ -47,7 +47,7 @@
         } while (0)
 #define UNUSED(x)	(void)(x)
 
-#define PACKET_DUMP
+//#define PACKET_DUMP
 
 struct hash_ring_clone_t *hash_clone[RTE_MAX_LCORE];
 uint32_t nb_hash_clone;
