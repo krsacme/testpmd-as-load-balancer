@@ -372,6 +372,12 @@ hash_ring_clone_create(struct hash_ring_t *ring)
     uint32_t array_mem, items_mem, i;
     struct hash_ring_clone_t *clone;
 
+    if (ring->item_length == 0)
+    {
+	    printf("no items to clone\n");
+	    return NULL;
+    }
+
     // Array
     array_mem = ring->item_length * sizeof(struct hash_ring_item_t*);
     // Actual Items

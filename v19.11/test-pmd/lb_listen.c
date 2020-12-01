@@ -41,6 +41,7 @@ lb_listen_init(void)
 	if (lb_listen_flag == 1)
 		return;
 	pthread_create(&lb_thread, NULL, lb_listen, NULL);
+	pthread_setname_np(lb_thread, "lb_listen");
 	lb_listen_flag = 1;
 	ring = hash_ring_create(DUT_REPLICAS);
 }
@@ -91,7 +92,10 @@ lb_listen(void *arg)
 
 	ret = bind(sock_conn, (struct sockaddr *) &server, sizeof(struct sockaddr_un));
 	if (ret < 0 )
+	{
+		printf("error in binding socket %s\n", SOCKET_NAME);
 		return NULL;
+	}
 
 	ret = listen(sock_conn, 32);
 	if (ret < 0 )

@@ -47,6 +47,8 @@
         } while (0)
 #define UNUSED(x)	(void)(x)
 
+#define PACKET_DUMP
+
 struct hash_ring_clone_t *hash_clone[RTE_MAX_LCORE];
 uint32_t nb_hash_clone;
 
@@ -71,7 +73,7 @@ pkt_burst_lb_forward_end(portid_t pi)
 	lb_listen_deinit();
 }
 
-	static uint32_t
+static uint32_t
 generate_hash_key(struct rte_mbuf *mb)
 {
 	uint32_t key;
@@ -148,6 +150,7 @@ generate_hash_key(struct rte_mbuf *mb)
 	return key;
 }
 
+#ifdef PACKET_DUMP
 static void
 pkt_dump(struct rte_mbuf *mb, portid_t port, int inout)
 {
@@ -249,6 +252,7 @@ pkt_dump(struct rte_mbuf *mb, portid_t port, int inout)
 			dmac_str, sip_str, dip_str, l4_proto_str, sport, dport);
 
 }
+#endif /* PACKET_DUMP */
 
 /*
  * Forwarding of packets in LB mode.
@@ -310,7 +314,9 @@ pkt_burst_lb_forward(struct fwd_stream *fs)
 			rte_prefetch0(rte_pktmbuf_mtod(pkts_burst[i + 1],
 						       void *));
 		mb = pkts_burst[i];
+#ifdef PACKET_DUMP
 		pkt_dump(mb, fs->rx_port, 0);
+#endif
 		eth_hdr = rte_pktmbuf_mtod(mb, struct rte_ether_hdr *);
 		if (eth_hdr == NULL)
 		{
@@ -327,7 +333,6 @@ pkt_burst_lb_forward(struct fwd_stream *fs)
 					rte_eth_macaddr_get(fs->tx_port, &tx_port_mac);
 					rte_ether_addr_copy(&tx_port_mac, &eth_hdr->s_addr);
 					rte_ether_addr_copy(&mac, &eth_hdr->d_addr);
-					pkt_dump(mb, fs->rx_port, 1);
 				}
 			}
 		}
@@ -337,8 +342,10 @@ pkt_burst_lb_forward(struct fwd_stream *fs)
 			rte_ether_addr_copy(&tx_port_mac, &eth_hdr->s_addr);
 			rte_ether_addr_copy(&peer_eth_addrs[fs->peer_addr],
 				&eth_hdr->d_addr);
-			pkt_dump(mb, fs->rx_port, 1);
 		}
+#ifdef PACKET_DUMP
+		pkt_dump(mb, fs->rx_port, 1);
+#endif
 		mb->ol_flags &= IND_ATTACHED_MBUF | EXT_ATTACHED_MBUF;
 		mb->ol_flags |= ol_flags;
 		mb->l2_len = sizeof(struct rte_ether_hdr);
