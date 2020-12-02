@@ -106,7 +106,6 @@ hash_ring_clone_get_mac(struct hash_ring_clone_t *clone, uint32_t key, uint8_t *
 
 	if (clone == NULL)
 	{
-		printf("hash_ring_clone_get_mac: clone is NULL\n");
 		return -2;
 	}
 
