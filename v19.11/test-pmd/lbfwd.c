@@ -47,8 +47,6 @@
         } while (0)
 #define UNUSED(x)	(void)(x)
 
-//#define PACKET_DUMP
-
 struct hash_ring_clone_t *hash_clone[RTE_MAX_LCORE];
 uint32_t nb_hash_clone;
 
@@ -278,8 +276,9 @@ pkt_burst_lb_forward(struct fwd_stream *fs)
 	uint64_t core_cycles;
 #endif
         struct rte_ether_addr mac;
-        uint32_t key;
+        uint32_t key = 0;
 	lcoreid_t lcore;
+	int ret = -1;
 
 #ifdef RTE_TEST_PMD_RECORD_CORE_CYCLES
 	start_tsc = rte_rdtsc();
@@ -324,16 +323,26 @@ pkt_burst_lb_forward(struct fwd_stream *fs)
 		}
 		if (fs->generate == 1)
 		{
+#ifdef MAC_FOR_EACH_PACKET
+			/* Generate hash and find mac for each packet */
 			key = generate_hash_key(mb);
 			if (key != 0)
-			{
-				if (0 == hash_ring_clone_get_mac(hash_clone[lcore], key, mac.addr_bytes))
-				{
-					rte_ether_addr_copy(&ports[fs->tx_port].eth_addr,
-						&eth_hdr->s_addr);
-					rte_ether_addr_copy(&mac, &eth_hdr->d_addr);
-				}
-			}
+				ret = hash_ring_clone_get_mac(hash_clone[lcore], key, mac.addr_bytes)
+#else
+			/* Generate hash and get mac once, and apply for all packets in a single read */
+                        if (key == 0)
+                        {
+                                key = generate_hash_key(mb);
+                                if (key != 0)
+                                        ret = hash_ring_clone_get_mac(hash_clone[lcore], key, mac.addr_bytes);
+                        }
+#endif
+                        if (ret == 0)
+                        {
+                                rte_ether_addr_copy(&ports[fs->tx_port].eth_addr,
+                                        &eth_hdr->s_addr);
+                                rte_ether_addr_copy(&mac, &eth_hdr->d_addr);
+                        }
 		}
 		else
 		{
