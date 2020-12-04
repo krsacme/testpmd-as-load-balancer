@@ -46,6 +46,7 @@
                 *d = (unsigned char)(ip & 0xff);\
         } while (0)
 #define UNUSED(x)	(void)(x)
+#define MAC_FOR_EACH_PACKET
 
 struct hash_ring_clone_t *hash_clone[RTE_MAX_LCORE];
 uint32_t nb_hash_clone;
@@ -72,12 +73,11 @@ pkt_burst_lb_forward_end(portid_t pi)
 }
 
 static uint32_t
-generate_hash_key(struct rte_mbuf *mb)
+generate_hash_key(struct rte_ether_hdr *eth_hdr)
 {
 	uint32_t key;
 	uint8_t *smac, *dmac;
 	uint16_t ethertype;
-	struct rte_ether_hdr *eth_hdr;
 	struct rte_ipv4_hdr *ipv4_hdr;
 	struct rte_ipv6_hdr *ipv6_hdr;
 	struct rte_vlan_hdr *vlan_hdr;
@@ -88,8 +88,6 @@ generate_hash_key(struct rte_mbuf *mb)
         uint8_t l4_proto;
         uint32_t dip, sip;
 
-	// L2 (Ethernet Header)
-	eth_hdr = rte_pktmbuf_mtod(mb, struct rte_ether_hdr *);
 	offset += sizeof(struct rte_ether_hdr);
 	smac = eth_hdr->s_addr.addr_bytes;
 	dmac = eth_hdr->d_addr.addr_bytes;
@@ -325,9 +323,9 @@ pkt_burst_lb_forward(struct fwd_stream *fs)
 		{
 #ifdef MAC_FOR_EACH_PACKET
 			/* Generate hash and find mac for each packet */
-			key = generate_hash_key(mb);
+			key = generate_hash_key(eth_hdr);
 			if (key != 0)
-				ret = hash_ring_clone_get_mac(hash_clone[lcore], key, mac.addr_bytes)
+				ret = hash_ring_clone_get_mac(hash_clone[lcore], key, mac.addr_bytes);
 #else
 			/* Generate hash and get mac once, and apply for all packets in a single read */
                         if (key == 0)
