@@ -108,22 +108,29 @@ hash_ring_clone_get_mac(struct hash_ring_clone_t *clone, uint32_t key, uint8_t *
 {
 	uint32_t i;
 
-	if (clone == NULL)
-	{
-		return -2;
-	}
+        if (clone == NULL)
+        {
+                return -2;
+        }
 
-	if (mac != NULL)
-	{
-		for (i = 0; i < clone->length; i++)
-		{
-			if (key < clone->list[i].key)
-			{
-				memcpy(mac, clone->list[i].mac, MAC_LEN);
-				return 0;
-			}
-		}
-		memcpy(mac, clone->list[clone->length - 1].mac, MAC_LEN);
-	}
-	return -1;
+        if (mac == NULL)
+        {
+                return -3;
+        }
+
+        if (clone->length == 0)
+        {
+                return -4;
+        }
+
+        for (i = 0; i < clone->length; i++)
+        {
+                if (key < clone->list[i].key)
+                {
+                        memcpy(mac, clone->list[i].mac, MAC_LEN);
+                        return 0;
+                }
+        }
+        memcpy(mac, clone->list[clone->length - 1].mac, MAC_LEN);
+        return 0;
 }
