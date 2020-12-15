@@ -94,9 +94,11 @@ hash_tuple(uint8_t *smac, uint8_t *dmac, uint32_t sip, uint32_t dip, uint16_t sp
 	memcpy(&buffer[idx], &dport, 2);
 	idx += 2;
 
-        /*hash_val = rte_jhash(buffer, idx, 0);*/
+        hash_val = rte_jhash(buffer, idx, 0);
+/*
         for (i = 0; i < idx; i++)
                 hash_val += (buffer[i] * 353535);
+*/
                 /*hash_val += (buffer[i] * 365365365);*/
 
 	return hash_val;
