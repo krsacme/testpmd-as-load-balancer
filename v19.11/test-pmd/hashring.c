@@ -275,6 +275,12 @@ hash_ring_add_node(struct hash_ring_t *ring, struct hash_ring_node_t *node_in)
     struct hash_ring_node_t *node;
     int ret;
 
+    node = hash_ring_find_node(ring, node_in);
+    if (node != NULL)
+    {
+        return;
+    }
+
     // Add new node to the linked list of ring
     node = hash_ring_ll_add_node(ring, node_in);
     if (node == NULL)
